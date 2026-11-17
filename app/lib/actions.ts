@@ -1,86 +1,81 @@
 'use server';
- 
+
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import postgres from 'postgres';
-import { redirect } from 'next/dist/client/components/navigation';
- 
-import { signIn } from '@/auth';
+import { redirect } from 'next/navigation';
+import { auth, signIn } from '@/auth';
 import { AuthError } from 'next-auth';
+import { db } from './db';
 
- 
-const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
- 
 const FormSchema = z.object({
-  id: z.string(),
-  customerId: z.string(),
-  amount: z.coerce.number(),
-  status: z.enum(['pending', 'paid']),
-  date: z.string(),
+  id: z.coerce.number().int().positive().optional(),
+  studentId: z.coerce.number().int().positive(),
+  courseId: z.coerce.number().int().positive(),
+  status: z.enum(['ABSENT', 'RETARD', 'JUSTIFIE']),
+  motif: z.string().max(255).nullable(),
 });
- 
-const CreateInvoice = FormSchema.omit({ id: true, date: true });
- 
+
+async function requireAuthentication() {
+  const session = await auth();
+  if (!session?.user) {
+    throw new Error('Unauthorized');
+  }
+}
+
 export async function createInvoice(formData: FormData): Promise<void> {
-  const { customerId, amount, status } = CreateInvoice.parse({
-    customerId: formData.get('customerId'),
-    amount: formData.get('amount'),
+  await requireAuthentication();
+  const values = FormSchema.omit({ id: true }).parse({
+    studentId: formData.get('studentId'),
+    courseId: formData.get('courseId'),
     status: formData.get('status'),
+    motif: formData.get('motif') || null,
   });
- 
-  const amountInCents = amount * 100;
-  const date = new Date().toISOString().split('T')[0];
- 
+
   try {
-    await sql`
-      INSERT INTO invoices (customer_id, amount, status, date)
-      VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
-    `;
+    await db.query(
+      'INSERT INTO absence (eleve_id, cours_id, statut, motif) VALUES (?, ?, ?, ?)',
+      [values.studentId, values.courseId, values.status, values.motif],
+    );
   } catch (error) {
-    console.error(error);
-    throw new Error('Database Error: Failed to Create Invoice.', {
-      cause: error,
-    });
+    console.error('Database Error:', error);
+    throw new Error('Database Error: Failed to create absence.', { cause: error });
   }
- 
+
   revalidatePath('/dashboard/invoices');
   redirect('/dashboard/invoices');
 }
 
-const UpdateInvoice = FormSchema.omit({ id: true, date: true });
-
-
-export async function updateInvoice(
-  id: string,
-  formData: FormData,
-): Promise<void> {
-  const { customerId, amount, status } = UpdateInvoice.parse({
-    customerId: formData.get('customerId'),
-    amount: formData.get('amount'),
+export async function updateInvoice(id: string, formData: FormData): Promise<void> {
+  await requireAuthentication();
+  const values = FormSchema.omit({ id: true }).parse({
+    studentId: formData.get('studentId'),
+    courseId: formData.get('courseId'),
     status: formData.get('status'),
+    motif: formData.get('motif') || null,
   });
- 
-  const amountInCents = amount * 100;
- 
+
   try {
-    await sql`
-        UPDATE invoices
-        SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
-        WHERE id = ${id}
-      `;
+    await db.query(
+      'UPDATE absence SET eleve_id = ?, cours_id = ?, statut = ?, motif = ? WHERE id = ?',
+      [values.studentId, values.courseId, values.status, values.motif, id],
+    );
   } catch (error) {
-    console.error(error);
-    throw new Error('Database Error: Failed to Update Invoice.', {
-      cause: error,
-    });
+    console.error('Database Error:', error);
+    throw new Error('Database Error: Failed to update absence.', { cause: error });
   }
- 
+
   revalidatePath('/dashboard/invoices');
   redirect('/dashboard/invoices');
 }
 
-export async function deleteInvoice(id: string) {
-  await sql`DELETE FROM invoices WHERE id = ${id}`;
+export async function deleteInvoice(id: string): Promise<void> {
+  await requireAuthentication();
+  try {
+    await db.query('DELETE FROM absence WHERE id = ?', [id]);
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Database Error: Failed to delete absence.', { cause: error });
+  }
   revalidatePath('/dashboard/invoices');
 }
 
@@ -92,12 +87,9 @@ export async function authenticate(
     await signIn('credentials', formData);
   } catch (error) {
     if (error instanceof AuthError) {
-      switch (error.type) {
-        case 'CredentialsSignin':
-          return 'Invalid credentials.';
-        default:
-          return 'Something went wrong.';
-      }
+      return error.type === 'CredentialsSignin'
+        ? 'Invalid credentials.'
+        : 'Something went wrong.';
     }
     throw error;
   }
