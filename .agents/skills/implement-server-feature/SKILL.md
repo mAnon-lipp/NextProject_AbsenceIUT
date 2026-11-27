@@ -14,7 +14,8 @@ description: "Ajoute ou modifie une fonctionnalité, une page, un formulaire, un
 4. Conserver exclusivement des Server Components. Ne pas créer de `"use client"`, de Route Handler, d'API locale ou de requête HTTP vers l'application elle-même.
 5. Garder l'URL ICS et ses éventuels identifiants dans une variable d'environnement serveur, jamais dans `NEXT_PUBLIC_*`, les props envoyées au navigateur ou les logs. En cas d'échec du flux, ne pas retourner silencieusement une valeur périmée.
 6. Vérifier le schéma et les conventions existantes avant toute requête SQL ; paramétrer chaque valeur. Faire les changements les plus restreints possibles et ne pas modifier de fichiers sans rapport.
-7. Vérifier le résultat avec `pnpm exec tsc --noEmit`, puis `pnpm build` si l'environnement le permet. Ne pas prétendre avoir exécuté des scripts `lint` ou `test` : ils ne sont pas définis dans `package.json`.
-8. Résumer les fichiers et comportements modifiés, les vérifications réellement exécutées et tout blocage restant.
+7. Pour toute modification qui touche au build, à MySQL ou aux variables d'environnement, vérifier les exigences de Vercel : `DATABASE_URL` est requise dès le chargement de `app/lib/db.ts`, les secrets doivent être configurés pour les environnements Preview/Production pertinents, et le pool existant doit être réutilisé.
+8. Vérifier le résultat avec `pnpm exec tsc --noEmit`, puis `pnpm build` si l'environnement le permet. Ne pas prétendre avoir exécuté des scripts `lint` ou `test` : ils ne sont pas définis dans `package.json`.
+9. Résumer les fichiers et comportements modifiés, les vérifications réellement exécutées et tout blocage restant. Ne pas pousser : un push peut lancer un déploiement Preview ou Production sur Vercel.
 
 Si une demande contredit l'architecture imposée ou si le schéma ne permet pas de trancher une décision métier, s'arrêter sur ce point et demander une clarification plutôt que d'introduire un contournement.

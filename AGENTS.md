@@ -40,6 +40,14 @@ Application de gestion des absences construite avec Next.js App Router, React, T
 
 Avant d'utiliser ou modifier une API Next.js, consulter la documentation installée correspondant au projet sous `node_modules/next/dist/docs/`. La documentation en ligne ou les connaissances du modèle ne remplacent pas cette version locale. Context7 peut compléter cette vérification pour les bibliothèques et leur version exacte.
 
+## Hébergement et déploiement Vercel
+
+- Le projet est hébergé sur Vercel avec les déploiements Git automatiques : chaque push peut lancer un déploiement Preview ; un push sur la branche de production peut mettre le site en production. Ne jamais pousser ni déclencher un déploiement sans demande explicite.
+- Configurer `DATABASE_URL`, `AUTH_SECRET` et l'URL privée du flux ICS dans les variables d'environnement du projet Vercel pour les environnements concernés. `app/lib/db.ts` exige `DATABASE_URL` dès son chargement ; vérifier que la variable est disponible pendant le build et à l'exécution. Les changements de variables Vercel s'appliquent aux nouveaux déploiements.
+- Garder les secrets dans Vercel et dans un `.env.local` non versionné pour le développement local ; ne pas les écrire dans le code, `vercel.json`, les logs ou la configuration des agents.
+- Réutiliser le pool `mysql2` existant dans `app/lib/db.ts` ; ne pas créer un pool par requête. Les instances Vercel pouvant fonctionner séparément et se multiplier, tenir compte des limites de connexions et de l'accès réseau du serveur MySQL avant de modifier cette configuration.
+- Avant tout changement destiné au déploiement, exécuter les vérifications disponibles et distinguer clairement un déploiement Preview d'une mise en production. Ne jamais affirmer qu'un push est sans effet opérationnel.
+
 ## Commandes
 
 - Installer : `pnpm install`
@@ -50,4 +58,4 @@ Avant d'utiliser ou modifier une API Next.js, consulter la documentation install
 
 Le projet ne définit actuellement pas de scripts dédiés `lint` ou `test`. Ne pas annoncer leur exécution ; lancer au minimum le contrôle TypeScript et, si l'environnement le permet, le build pertinent pour le changement.
 
-Ne pas créer de commit ni pousser de branche sans demande explicite.
+Ne pas créer de commit ni pousser de branche sans demande explicite : un push peut créer un déploiement Vercel, et celui de la branche configurée comme production peut rendre les changements publics.
